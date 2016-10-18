@@ -3,48 +3,11 @@
 import cv2
 import sys
 import numpy as np
-import os
-import math
+import toolbox
+import progressbar
 
 # debug = True
 debug = False
-
-def distance(x1, y1, x2, y2):
-	return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-def getTotalFrames(path):
-	cap = cv2.VideoCapture(path)
-	counter = 0
-	while True:
-		_, frame = cap.read()
-		if frame is None:
-			break
-		counter += 1
-	return counter
-
-def initProgressBar():
-	bar_width = os.get_terminal_size().columns - 7
-
-	sys.stdout.write('[%s]' % (' ' * bar_width))
-	sys.stdout.flush()
-	sys.stdout.write('\r[\n')
-
-def updateProgressBar(progress):
-	sys.stdout.write('\033[F') # go to beginning of previous line
-
-	bar_width = os.get_terminal_size().columns - 7
-
-	fill_count = round(progress * bar_width)
-	sys.stdout.write('[' + '-' * fill_count)
-
-	blank_count = round((1.0 - progress) * bar_width)
-	progress = int(progress * 100)
-	padding = '   '[:-len(str(progress))]
-	sys.stdout.write(' ' * blank_count + '] ' + padding + str(progress) + '%\n')
-	sys.stdout.flush()
-
-def loadCascade(file):
-	return cv2.CascadeClassifier('cascades/' + file)
 
 def overlayImage(bg, overlay):
 	gray = cv2.cvtColor(overlay, cv2.COLOR_BGR2GRAY)
@@ -68,7 +31,7 @@ def init(inputFile, outputFile):
 	return (capture, video)
 
 def loop(capture, video):
-	total_frames = getTotalFrames(sys.argv[1])
+	total_frames = toolbox.getTotalFrames(sys.argv[1])
 	frame_count = 0
 
 	last_eye_left = [0, 0, 0, 0]
@@ -80,8 +43,6 @@ def loop(capture, video):
 		if frame is None:
 			return
 
-		frame = np.array(frame, np.uint8)
-
 		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
 		faces = face_cascade.detectMultiScale(gray, 1.1, 5)
@@ -92,21 +53,11 @@ def loop(capture, video):
 			paddingBottom = int(h * 0.45)
 
 			if debug:
-				cv2.rectangle(frame, (x, y+paddingTop), (x+half, y+h - paddingBottom), (0, 255, 0), 2)
-				cv2.rectangle(frame, (x+half, y+paddingTop), (x+w, y+h - paddingBottom), (0, 255, 0), 2)
-
-			def getBetterPosition(rect1, rect2):
-				ex1, ey1, ew1, eh1 = rect1
-				ex2, ey2, ew2, eh2 = rect2
-				if ew1 != 0 and eh1 != 0 and ew2 != 0 and eh2 != 0:
-					rate = 0
-					# try 20
-					# rate = 20
-
-					x = ex1 if distance(ex1, ey1, ex2, ey2) < rate else ex2
-					y = ey1 if distance(ex1, ey1, ex2, ey2) < rate else ey2
-					return (x, y)
-				return (ex1, ey1)
+				color = (0, 255, 0)
+				top = y+paddingTop
+				bottom = y+h - paddingBottom
+				cv2.rectangle(frame, (x 	, top), (x+half, bottom), color, 2)
+				cv2.rectangle(frame, (x+half, top), (x+w   , bottom), color, 2)
 
 			def processEye(eye, ex, ey, ew, eh):
 				if debug:
@@ -119,7 +70,7 @@ def loop(capture, video):
 			def processListOfEyes(eyes, offset, last_eye):
 				for (ex, ey, ew, eh) in eyes:
 					
-					ex, ey = getBetterPosition((ex, ey, ew, eh), last_eye)
+					ex, ey = toolbox.getBetterPosition((ex, ey, ew, eh), last_eye)
 
 					ew, eh = int(w * 0.25), int(w * 0.25)
 
@@ -135,8 +86,14 @@ def loop(capture, video):
 
 			# Get 2 lists of detected eyes
 
-			eyes_left = eye_cascade.detectMultiScale(face_gray_left, 1.02, 5)
-			eyes_right = eye_cascade.detectMultiScale(face_gray_right, 1.02, 5)
+			eyes_left = eye_cascade.detectMultiScale(face_gray_left, 1.02, 5,
+				# minSize=(int(w / 8), int(h / 8)),
+				# maxSize=(int(w / 3), int(h / 3))
+			)
+			eyes_right = eye_cascade.detectMultiScale(face_gray_right, 1.02, 5,
+				# minSize=(int(w / 8), int(h / 8)),
+				# maxSize=(int(w / 3), int(h / 3))
+			)
 
 			# Draw eyes from list of detected eyes
 
@@ -161,7 +118,7 @@ def loop(capture, video):
 
 		frame_count += 1
 		progress = frame_count / total_frames
-		updateProgressBar(progress)
+		progressbar.update(progress)
 
 def quit(capture, video):
 	capture.release()
@@ -169,14 +126,14 @@ def quit(capture, video):
 
 def main():
 	global face_cascade, eye_cascade, eye
-	face_cascade = loadCascade('haarcascade_frontalface_default.xml')
-	eye_cascade = loadCascade('haarcascade_eye.xml')
+	face_cascade = toolbox.loadCascade('haarcascade_frontalface_default.xml')
+	eye_cascade = toolbox.loadCascade('haarcascade_eye.xml')
 
 	eye = cv2.imread('resources/eye.jpg')
 
 	cap, video = init(sys.argv[1], sys.argv[2])
 
-	initProgressBar()
+	progressbar.init()
 
 	loop(cap, video)
 
@@ -187,4 +144,4 @@ if __name__ == '__main__':
 		main()
 	else:
 		print('usage: python', sys.argv[0], '<input.webm> <output.webm>')
-		sys.exit()
+		sys.exit(1)

@@ -10,7 +10,7 @@ To enter the docker container run this:
 
 	$ make enter
 
-This will run a docker container and thow you into a bash shell,
+This will run a docker container and throw you into a bash shell,
 in which you have to run this command to convert the video:
 
 	$ make run

@@ -3,8 +3,9 @@
 Instead of using webcam capture and GUI output, this sample
 reads from a file and outputs to a new file.
 
-Before you start make sure you have a directory
-called `data` in the root directory of the the project.
+First you need to initialize the project, for this run:
+
+	$ make init
 
 To enter the docker container run this:
 
